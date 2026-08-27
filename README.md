@@ -4,6 +4,10 @@ A complete 16 × 16 RGB LED matrix project combining embedded firmware, serial i
 
 The project supports a compiled-in static image and two serial receiver variants for an Arduino Uno-controlled NeoPixel matrix. The repository also contains a Python/Tkinter editor, a curated set of Arduino-ready image snippets, hardware test sketches, and enclosure models.
 
+![16 x 16 NeoPixel matrix prototype displaying Mount Fuji and a pagoda](docs/images/neopixel-matrix-prototype.jpg)
+
+*The assembled prototype displaying the static Mount Fuji image included with the firmware.*
+
 ## Project overview
 
 ```mermaid
