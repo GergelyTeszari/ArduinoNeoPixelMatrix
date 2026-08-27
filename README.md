@@ -1,17 +1,18 @@
 # Arduino NeoPixel Matrix
 
-A complete 16 × 16 RGB LED matrix project combining embedded firmware, a custom desktop pixel-art editor, and a 3D-printable enclosure.
+A complete 16 × 16 RGB LED matrix project combining embedded firmware, serial image transfer, a custom desktop pixel-art editor, reusable static pictures, and a 3D-printable enclosure.
 
-The project currently displays a static image on an Arduino Uno-controlled NeoPixel matrix. The repository also contains a Python/Tkinter editor that can generate Arduino-compatible color data and a custom `.mtx` representation for future dynamic image loading.
+The project supports a compiled-in static image and two serial receiver variants for an Arduino Uno-controlled NeoPixel matrix. The repository also contains a Python/Tkinter editor, a curated set of Arduino-ready image snippets, hardware test sketches, and enclosure models.
 
 ## Project overview
 
 ```mermaid
 flowchart LR
-    A[Python pixel editor] -->|C array export| B[Arduino firmware]
-    A -->|.mtx export| C[Future dynamic loader]
-    B --> D[16 x 16 RGB matrix]
-    E[3D-printable enclosure] --> D
+    A[Python pixel editor] -->|TXT array rows| B[Static firmware]
+    C[Desktop serial sender] -->|Pixel or row protocol| D[Serial firmware]
+    B --> E[16 x 16 RGB matrix]
+    D --> E
+    F[3D-printable enclosure] --> E
 ```
 
 This project brings together several engineering areas:
@@ -19,7 +20,8 @@ This project brings together several engineering areas:
 - embedded firmware development on Arduino Uno;
 - coordinate transformation for a serpentine-wired LED matrix;
 - a Python desktop tool for creating pixel art;
-- custom image-data export;
+- static and serial image transfer workflows;
+- custom image-data export and reusable picture sources;
 - mechanical design for a printable enclosure and supporting parts.
 
 ## Current features
@@ -29,12 +31,15 @@ This project brings together several engineering areas:
 - Controls a 16 × 16, 256-pixel RGB NeoPixel matrix.
 - Maps two-dimensional image coordinates to the physical serpentine LED layout.
 - Corrects the vertical orientation of the installed matrix.
-- Displays a compiled-in static image.
+- Displays a compiled-in static image, currently Mount Fuji and a pagoda.
+- Includes a legacy receiver that accepts one `RRGGBB` pixel per serial line.
+- Includes an optimized receiver that accepts one 16-pixel row per serial line.
+- Includes full-matrix color and individual-pixel diagnostic sketches.
 - Uses the Adafruit NeoPixel library.
 
 ### Pixel-art editor
 
-The included `NeoPixel_Matrix_Canvas.py` application provides:
+The included `tools/pixel_editor/NeoPixel_Matrix_Canvas.py` application provides:
 
 - a 16 × 16 drawing canvas;
 - color selection;
@@ -46,7 +51,7 @@ The included `NeoPixel_Matrix_Canvas.py` application provides:
 
 ### Mechanical design
 
-The `NeoPixel_Matrix_frame` directory contains STL files for:
+The `hardware/enclosure` directory contains STL files for:
 
 - the upper frame and pixel-separating grid;
 - the lower enclosure with hardware cut-outs;
@@ -55,18 +60,23 @@ The `NeoPixel_Matrix_frame` directory contains STL files for:
 
 The enclosure is an early hardware revision and may require small adjustments depending on the exact matrix PCB and connector placement.
 
+### Static picture gallery
+
+`assets/patterns/txt` contains six 16 × 16 pictures as Arduino initializer rows. Keeping these generated `.txt` snippets makes it possible to replace the static `colorMatrix` without changing the exporter or introducing a build-time conversion step. See [Static image source files](docs/static-images.md).
+
 ## Repository structure
 
 ```text
 ArduinoNeoPixelMatrix/
-├── NeoPixel_Array/
-│   └── NeoPixel_Array.ino
-├── NeoPixel_Matrix_Canvas.py
-├── NeoPixel_Matrix_frame/
-│   ├── Feet.stl
-│   ├── LED_positions.stl
-│   ├── NeoPixel_Matrix_frame_bottom_frame.stl
-│   └── NeoPixel_Matrix_frame_top_frame_with_grid.stl
+├── assets/patterns/txt/       # Arduino-ready 16 x 16 image snippets
+├── docs/                      # Serial protocol and static image guides
+├── examples/                  # Matrix hardware diagnostic sketches
+├── firmware/
+│   ├── serial/                # Legacy and optimized serial receivers
+│   └── static_image/          # Compiled-in image firmware
+├── hardware/enclosure/        # 3D-printable STL files
+├── tools/pixel_editor/        # Python/Tkinter image editor
+├── .gitignore
 └── README.md
 ```
 
@@ -89,33 +99,43 @@ ArduinoNeoPixelMatrix/
 
 No third-party Python packages are currently required.
 
-## Using the current version
+## Usage
 
-### 1. Create an image
+### Static image workflow
 
 Run the editor from the repository root:
 
 ```bash
-python NeoPixel_Matrix_Canvas.py
+python tools/pixel_editor/NeoPixel_Matrix_Canvas.py
 ```
 
 Draw the image, select the required brightness, and choose **Export to TXT**.
 
-### 2. Add the exported image to the firmware
-
 The generated `export.txt` file contains the rows of an Arduino-compatible color matrix. Replace the contents of the `colorMatrix` initializer in:
 
 ```text
-NeoPixel_Array/NeoPixel_Array.ino
+firmware/static_image/NeoPixel_Array/NeoPixel_Array.ino
 ```
 
-with the exported rows.
-
-### 3. Upload the firmware
+with the exported rows. Existing ready-to-copy pictures are available in `assets/patterns/txt`; their exact format and names are described in [Static image source files](docs/static-images.md).
 
 Open the sketch in Arduino IDE, install the Adafruit NeoPixel library if required, select the correct board and serial port, and upload the firmware.
 
 The included example image is a hand-drawn Mount Fuji scene with a Japanese pagoda.
+
+### Serial image workflow
+
+Choose one of the following sketches:
+
+- `firmware/serial/NeoPixel_Serial/NeoPixel_Serial.ino` receives and displays one pixel per line;
+- `firmware/serial/NeoPixel_Serial_optimised/NeoPixel_Serial_optimised.ino` receives and displays one complete 16-pixel row per line.
+
+The two sketches use different wire protocols. Read [Serial firmware and protocol](docs/serial-protocol.md) before implementing or selecting a sender. The optimized version is recommended for normal frame transfer; the legacy version remains available for compatibility and debugging.
+
+### Hardware diagnostics
+
+- `examples/NeoPixel_AllRGB_test/NeoPixel_AllRGB_test.ino` fills the complete matrix with red, green, blue and a pale white test color.
+- `examples/NeoPixel_IndividualRGB_test/NeoPixel_IndividualRGB_test.ino` walks through every logical position one at a time in each RGB channel, making wiring-order and mapping errors easier to locate.
 
 ## Implementation details
 
@@ -139,7 +159,9 @@ This allows the image data to remain stored as a conventional two-dimensional ar
 
 This repository currently represents a working prototype rather than a finished product.
 
-- The Arduino firmware displays one image compiled into the sketch.
+- The static Arduino firmware displays one image compiled into the sketch.
+- Two serial receivers provide pixel-by-pixel and row-by-row image transfer.
+- Serial transfer has no acknowledgement, checksum or atomic frame swap.
 - The `.mtx` format can be exported by the editor but is not yet loaded by the firmware.
 - The editor does not yet reopen existing `.mtx` files.
 - Matrix dimensions and hardware pins are currently fixed in the source code.
@@ -149,13 +171,14 @@ This repository currently represents a working prototype rather than a finished 
 ## Planned improvements
 
 - Store image data more efficiently, for example in flash memory.
-- Separate generated image data from the main firmware source.
+- Add an automated converter from the maintained TXT snippets to firmware headers.
 - Add `.mtx` import to the desktop editor.
 - Implement dynamic image loading on an ESP32-based version.
-- Add SD-card or serial image transfer.
+- Add framing, checksums and acknowledgements to serial image transfer.
+- Add SD-card image loading.
 - Make matrix dimensions, orientation, and pin assignment configurable.
 - Add hardware photos, a wiring diagram, and a short demonstration video.
-- Add automated checks for the Python exporter and coordinate mapping.
+- Add automated checks for the Python exporter, picture dimensions, serial parser and coordinate mapping.
 
 ## Background
 
